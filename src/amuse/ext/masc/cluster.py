@@ -11,19 +11,18 @@ subject to change.
 
 -- Steven Rieder steven at rieder punt nl
 """
-
 import logging
-import numpy
 
-from amuse.units import (
-    units,
-    nbody_system,
-    generic_unit_converter,
-)
-from amuse.units.trigo import sin, cos
+import numpy
 from amuse.datamodel.particles import Particles
-from amuse.ic.plummer import new_plummer_sphere
 from amuse.ic.kingmodel import new_king_model
+from amuse.ic.plummer import new_plummer_sphere
+from amuse.units import generic_unit_converter
+from amuse.units import nbody_system
+from amuse.units import units
+from amuse.units.trigo import cos
+from amuse.units.trigo import sin
+
 try:
     from amuse.ic.fractalcluster import new_fractal_cluster_model
 except ImportError:
@@ -33,7 +32,7 @@ except ImportError:
 def new_star_cluster(
         stellar_mass=False,
         initial_mass_function="salpeter",
-        upper_mass_limit=125. | units.MSun,
+        upper_mass_limit=125.0 | units.MSun,
         lower_mass_limit=0.1 | units.MSun,
         number_of_stars=1024,
         effective_radius=3.0 | units.parsec,
@@ -42,8 +41,7 @@ def new_star_cluster(
         star_distribution_fd=2.0,
         star_metallicity=0.01,
         # initial_binary_fraction=0,
-        **kwargs
-):
+        **kwargs):
     """
     Create stars.
     When using an IMF, either the stellar mass is fixed (within
@@ -54,24 +52,27 @@ def new_star_cluster(
     imf_name = initial_mass_function.lower()
     if imf_name == "salpeter":
         from amuse.ic.salpeter import new_salpeter_mass_distribution
+
         initial_mass_function = new_salpeter_mass_distribution
     elif imf_name == "kroupa":
         from amuse.ic.brokenimf import new_kroupa_mass_distribution
+
         initial_mass_function = new_kroupa_mass_distribution
     elif imf_name == "flat":
         from amuse.ic.flatimf import new_flat_mass_distribution
+
         initial_mass_function = new_flat_mass_distribution
     elif imf_name == "fixed":
         from amuse.ic.flatimf import new_flat_mass_distribution
 
-        def new_fixed_mass_distribution(
-                number_of_particles, *list_arguments, **keyword_arguments
-        ):
+        def new_fixed_mass_distribution(number_of_particles, *list_arguments,
+                                        **keyword_arguments):
             return new_flat_mass_distribution(
                 number_of_particles,
-                mass_min=stellar_mass/number_of_stars,
-                mass_max=stellar_mass/number_of_stars,
+                mass_min=stellar_mass / number_of_stars,
+                mass_max=stellar_mass / number_of_stars,
             )
+
         initial_mass_function = new_fixed_mass_distribution
     else:
         raise ValueError("This imf is not implemented")
@@ -89,8 +90,7 @@ def new_star_cluster(
                     1,
                     mass_min=lower_mass_limit,
                     mass_max=upper_mass_limit,
-                )[0]
-            )
+                )[0])
         total_mass = mass.sum()
         number_of_stars = len(mass)
     else:
@@ -104,7 +104,7 @@ def new_star_cluster(
 
     converter = generic_unit_converter.ConvertBetweenGenericAndSiUnits(
         total_mass,
-        1. | units.kms,
+        1.0 | units.kms,
         effective_radius,
     )
     # Give stars a position and velocity, based on the distribution model.
@@ -158,28 +158,26 @@ def new_star_cluster(
     stars.collection_attributes.star_metallicity = star_metallicity
 
     # Derived/legacy values
-    stars.collection_attributes.converter_mass = \
-        converter.to_si(1 | nbody_system.mass)
-    stars.collection_attributes.converter_length =\
-        converter.to_si(1 | nbody_system.length)
-    stars.collection_attributes.converter_speed =\
-        converter.to_si(1 | nbody_system.speed)
+    stars.collection_attributes.converter_mass = converter.to_si(
+        1 | nbody_system.mass)
+    stars.collection_attributes.converter_length = converter.to_si(
+        1 | nbody_system.length)
+    stars.collection_attributes.converter_speed = converter.to_si(
+        1 | nbody_system.speed)
 
     return stars
 
 
-def new_stars_from_sink(
-        origin,
-        upper_mass_limit=125 | units.MSun,
-        lower_mass_limit=0.1 | units.MSun,
-        default_radius=0.25 | units.pc,
-        velocity_dispersion=1 | units.kms,
-        logger=None,
-        initial_mass_function="kroupa",
-        distribution="random",
-        randomseed=None,
-        **keyword_arguments
-):
+def new_stars_from_sink(origin,
+                        upper_mass_limit=125 | units.MSun,
+                        lower_mass_limit=0.1 | units.MSun,
+                        default_radius=0.25 | units.pc,
+                        velocity_dispersion=1 | units.kms,
+                        logger=None,
+                        initial_mass_function="kroupa",
+                        distribution="random",
+                        randomseed=None,
+                        **keyword_arguments):
     """
     Form stars from an origin particle that keeps track of the properties of
     this region.
@@ -194,25 +192,21 @@ def new_stars_from_sink(
     except AttributeError:
         initialised = False
     if not initialised:
-        logger.debug(
-            "Initialising origin particle %i for star formation",
-            origin.key
-        )
+        logger.debug("Initialising origin particle %i for star formation",
+                     origin.key)
         next_mass = new_star_cluster(
             initial_mass_function=initial_mass_function,
             upper_mass_limit=upper_mass_limit,
             lower_mass_limit=lower_mass_limit,
             number_of_stars=1,
-            **keyword_arguments
-        )
+            **keyword_arguments)
         origin.next_primary_mass = next_mass[0].mass
         origin.initialised = True
 
     if origin.mass < origin.next_primary_mass:
         logger.debug(
             "Not enough in star forming region %i to form the next star",
-            origin.key
-        )
+            origin.key)
         return Particles()
 
     mass_reservoir = origin.mass - origin.next_primary_mass
@@ -237,13 +231,8 @@ def new_stars_from_sink(
     except AttributeError:
         radius = default_radius
     rho = numpy.random.random(number_of_stars) * radius
-    theta = (
-        numpy.random.random(number_of_stars)
-        * (2 * numpy.pi | units.rad)
-    )
-    phi = (
-        numpy.random.random(number_of_stars) * numpy.pi | units.rad
-    )
+    theta = numpy.random.random(number_of_stars) * (2 * numpy.pi | units.rad)
+    phi = numpy.random.random(number_of_stars) * numpy.pi | units.rad
     x = rho * sin(phi) * cos(theta)
     y = rho * sin(phi) * sin(theta)
     z = rho * cos(phi)
@@ -251,18 +240,15 @@ def new_stars_from_sink(
     new_stars.y += y
     new_stars.z += z
 
-    velocity_magnitude = numpy.random.normal(
+    velocity_magnitude = (numpy.random.normal(
         scale=velocity_dispersion.value_in(units.kms),
         size=number_of_stars,
-    ) | units.kms
-    velocity_theta = (
-        numpy.random.random(number_of_stars)
-        * (2 * numpy.pi | units.rad)
     )
-    velocity_phi = (
-        numpy.random.random(number_of_stars)
-        * (numpy.pi | units.rad)
-    )
+                          | units.kms)
+    velocity_theta = numpy.random.random(number_of_stars) * (2 * numpy.pi
+                                                             | units.rad)
+    velocity_phi = numpy.random.random(number_of_stars) * (numpy.pi
+                                                           | units.rad)
     vx = velocity_magnitude * sin(velocity_phi) * cos(velocity_theta)
     vy = velocity_magnitude * sin(velocity_phi) * sin(velocity_theta)
     vz = velocity_magnitude * cos(velocity_phi)
